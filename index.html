@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>רכב הכפר</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1D4E9E">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="רכב הכפר">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&family=Secular+One&display=swap">
@@ -197,6 +204,7 @@ td.wrap-cell{white-space:normal;min-width:160px}
     </div>
     <div class="row" style="align-items:center">
       <div id="plate" class="plate" hidden><span class="il">IL</span><span class="pn" id="plate-num"></span></div>
+      <button id="install" class="btn" type="button" hidden>התקנה כאפליקציה</button>
       <div id="who" class="who" hidden></div>
     </div>
   </div>
@@ -247,6 +255,21 @@ function validId(id){id=String(id||'').replace(/\D/g,'');if(id.length<5||id.leng
 function toast(msg,bad){const t=$('#toast');t.textContent=msg;t.className='toast'+(bad?' bad':'');t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,bad?6000:3200)}
 function store(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
 function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+
+/* ---------- app install (PWA) ---------- */
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(!standalone())$('#install').hidden=false});
+window.addEventListener('appinstalled',()=>{$('#install').hidden=true;toast('האפליקציה הותקנה במסך הבית')});
+if(isIOS&&!standalone())$('#install').hidden=false;
+$('#install').onclick=async()=>{
+  if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;installEvt=null;if(r.outcome==='accepted')$('#install').hidden=true;return}
+  openModal({title:'התקנה באייפון',submit:'הבנתי',
+    body:`<ol class="steps" style="color:var(--ink)"><li>פתחו את האתר בדפדפן <b>Safari</b></li><li>לחצו על כפתור השיתוף (ריבוע עם חץ למעלה) בתחתית המסך</li><li>גללו ובחרו <b>הוספה למסך הבית</b></li><li>לחצו <b>הוסף</b>. האייקון של רכב הכפר יופיע במסך הבית</li></ol>`,
+    onSubmit(){}});
+};
 
 /* ---------- auth ---------- */
 function decodeJwt(t){const b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(b))))}
