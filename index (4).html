@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>רכב הכפר</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&family=Secular+One&display=swap">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+/* Layout: one column, header band with the car's plate; tabs; cards per trip. Built for a phone first. */
+:root{
+  --paper:#F2F4F1; --card:#FFFFFF; --ink:#17202A; --muted:#5A6472; --line:#D8DDD7;
+  --accent:#1D4E9E; --accent-ink:#FFFFFF; --accent-soft:#E3EBF8;
+  --plate:#F3C437; --plate-ink:#111111; --il:#1D4E9E;
+  --ok:#2C7A4B; --ok-soft:#E1F1E7; --warn:#A8690F; --warn-soft:#FBEFD9; --bad:#B23A30; --bad-soft:#F8E1DE;
+  --f-display:"Secular One","Assistant",system-ui,sans-serif;
+  --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#11151B; --card:#1A2029; --ink:#E6E9ED; --muted:#98A1AD; --line:#2B333E;
+  --accent:#7DA6EE; --accent-ink:#0D1626; --accent-soft:#1E2B42;
+  --plate:#E8BA2F; --plate-ink:#111111; --il:#2D5DAE;
+  --ok:#62BD86; --ok-soft:#173023; --warn:#E3A84C; --warn-soft:#352A15; --bad:#EE7B70; --bad-soft:#3A1E1B;
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;line-height:1.2;text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+bdi.ltr{direction:ltr;unicode-bidi:isolate}
+
+/* header */
+.top{background:var(--card);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 10px;flex-wrap:wrap}
+.eyebrow{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.top h1{font-size:26px}
+.meta{font-size:14px;color:var(--muted)}
+.plate{display:inline-flex;align-items:stretch;border:2px solid var(--plate-ink);border-radius:6px;overflow:hidden;background:var(--plate);
+  color:var(--plate-ink);font-family:var(--f-num);font-weight:600;font-size:18px;direction:ltr;box-shadow:0 1px 0 rgba(0,0,0,.15)}
+.plate .il{background:var(--il);color:#fff;font-size:10px;display:flex;align-items:flex-end;padding:2px 5px;font-family:var(--f-body);font-weight:700}
+.plate .pn{padding:2px 10px;letter-spacing:.04em}
+.who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.who img{width:28px;height:28px;border-radius:50%}
+.linkbtn{background:none;border:0;padding:4px;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:13px}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-block:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;margin-inline-start:6px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;text-align:center}
+
+main{padding-block:18px 60px;display:flex;flex-direction:column;gap:18px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sec-h h2{font-size:20px}
+.hint{color:var(--muted);font-size:14px}
+.empty{padding:22px 16px;border:1px dashed var(--line);border-radius:var(--r);color:var(--muted);text-align:center}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--card);
+  padding:9px 14px;border-radius:8px;font-weight:600;cursor:pointer;min-height:42px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.good{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.big{width:100%;font-size:17px;min-height:50px}
+.btn:disabled{opacity:.55;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* trip cards */
+.trip{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
+.trip.attn{border-color:var(--warn)}
+.trip-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.when{font-weight:700}
+.dest{font-family:var(--f-display);font-size:19px}
+.sub{color:var(--muted);font-size:14px}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+.st-pending{background:var(--warn-soft);color:var(--warn)}
+.st-approved{background:var(--accent-soft);color:var(--accent)}
+.st-active{background:var(--ok);color:#fff}
+.st-done{background:var(--ok-soft);color:var(--ok)}
+.st-rejected{background:var(--bad-soft);color:var(--bad)}
+.st-cancelled{background:var(--line);color:var(--muted)}
+.flag{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:6px 10px;font-size:14px}
+.flag.bad{background:var(--bad-soft);color:var(--bad)}
+.note{background:var(--paper);border-radius:6px;padding:6px 10px;font-size:14px}
+.odo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:var(--paper);border-radius:8px;padding:10px}
+.odo div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.odo small{color:var(--muted);font-size:12px}
+.odo b{font-family:var(--f-num);font-weight:600;font-size:15px}
+
+/* calendar */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.day{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.day.today{border-color:var(--accent)}
+.day-h{display:flex;justify-content:space-between;font-weight:700}
+.day-h .d{color:var(--muted);font-weight:600}
+.bar{position:relative;height:16px;border-radius:4px;background:var(--paper);direction:ltr;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.bar span{position:absolute;top:2px;bottom:2px;border-radius:3px;background:var(--accent)}
+.bar span.p{background:repeating-linear-gradient(45deg,var(--warn) 0 4px,transparent 4px 8px);border:1px solid var(--warn)}
+.bar span.m{background:var(--ok)}
+.ticks{display:flex;justify-content:space-between;direction:ltr;font-size:11px;color:var(--muted);font-family:var(--f-num)}
+.bk{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:12px;height:10px;border-radius:2px;margin-inline-end:6px;vertical-align:-1px;background:var(--accent)}
+.legend .lp::before{background:repeating-linear-gradient(45deg,var(--warn) 0 3px,transparent 3px 6px);border:1px solid var(--warn)}
+.legend .lm::before{background:var(--ok)}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label,.lbl{font-weight:600;font-size:14px}
+.field small{color:var(--muted);font-size:13px}
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=date],input[type=datetime-local],select,textarea{
+  width:100%;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:10px 12px;min-height:44px}
+textarea{min-height:90px;resize:vertical}
+input.odo-in{font-family:var(--f-num);font-size:24px;letter-spacing:.12em;text-align:center;direction:ltr}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:600}
+.check input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--accent)}
+.terms{white-space:pre-wrap;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px;max-height:340px;overflow:auto;font-size:15px;line-height:1.65}
+.sig-wrap{position:relative;border:1px dashed var(--muted);border-radius:8px;background:#fff;height:160px}
+.sig-wrap canvas{width:100%;height:100%;display:block;touch-action:none;color:#111;border-radius:8px}
+.sig-wrap .ph{position:absolute;inset:auto 0 10px 0;text-align:center;color:#888;font-size:13px;pointer-events:none}
+.err{color:var(--bad);font-weight:600;font-size:14px}
+
+/* fuel gauge */
+.gauge{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;direction:ltr}
+.seg{height:34px;border:1px solid var(--line);border-radius:4px;background:var(--paper);cursor:pointer;padding:0}
+.seg.on{background:var(--accent);border-color:var(--accent)}
+.seg.on.low{background:var(--warn);border-color:var(--warn)}
+.gauge-l{display:flex;justify-content:space-between;direction:ltr;font-family:var(--f-num);font-size:12px;color:var(--muted)}
+.gauge-v{font-size:14px;color:var(--muted)}
+
+/* tables */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:700;background:var(--paper)}
+td.wrap-cell{white-space:normal;min-width:160px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.tile b{display:block;font-family:var(--f-num);font-size:24px}
+.tile small{color:var(--muted)}
+
+/* members */
+.member{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere;user-select:all}
+
+/* modal + toast */
+.modal{position:fixed;inset:0;background:rgba(10,14,20,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+@media (min-width:640px){.modal{align-items:center}}
+.sheet{background:var(--card);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;border-radius:14px 14px 0 0;
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (min-width:640px){.sheet{border-radius:14px}}
+.sheet header{padding:16px 18px 6px}
+.sheet header h2{font-size:21px}
+.sheet .body{padding:8px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.sheet footer{display:flex;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line)}
+.sheet footer .btn{flex:1}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);
+  padding:10px 16px;border-radius:8px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
+.toast.bad{background:var(--bad);color:#fff}
+
+/* sign-in */
+.hero{padding-block:28px;display:flex;flex-direction:column;gap:14px}
+.hero h2{font-size:30px}
+.steps{display:flex;flex-direction:column;gap:6px;margin:0;padding-inline-start:20px;color:var(--muted)}
+#gbtn{min-height:44px}
+.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;margin:40px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <div>
+      <div class="eyebrow">כפר עיינות · שימוש ברכב</div>
+      <h1 id="car-name">רכב הכפר</h1>
+      <div id="car-meta" class="meta"></div>
+    </div>
+    <div class="row" style="align-items:center">
+      <div id="plate" class="plate" hidden><span class="il">IL</span><span class="pn" id="plate-num"></span></div>
+      <div id="who" class="who" hidden></div>
+    </div>
+  </div>
+  <nav id="tabs" class="wrap tabs" role="tablist" hidden></nav>
+</header>
+<main id="view" class="wrap"><div class="spin" aria-label="טוען"></div></main>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+/* ===== הגדרות: להדביק כאן את שני הערכים מההקמה ===== */
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbzRtU-Ljjn9HlPpqDZFxMKQNIAN5AsE6bk7DKZznExnHhRbMw4JGvAx4WtO2-FrO6R-/exec',        // כתובת אפליקציית האינטרנט של Apps Script (מסתיימת ב-/exec)
+  CLIENT_ID: '867406793893-3p16e2vlr301fpcb80n9jc8gig10qovu.apps.googleusercontent.com'          // מזהה הלקוח מ-Google Cloud
+};
+
+const PURPOSES = ['הסעת חניכים','ליווי חניך/ה לטיפול או לתור','קניות ואספקה לכפר','פגישה או ישיבה מחוץ לכפר','סידורים של הפנימייה','אחר'];
+const FUEL = {1:'⅛',2:'¼',3:'⅜',4:'½',5:'⅝',6:'¾',7:'⅞',8:'מלא'};
+const STATUS = {pending:'ממתינה לאישור',approved:'מאושרת',active:'ברכב עכשיו',done:'הושלמה',rejected:'נדחתה',cancelled:'בוטלה'};
+const DAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const DAY = 86400000;
+
+const S = {token:null, profile:null, me:null, tab:null, trips:[], admin:null, busy:[], weekStart:startOfWeek(Date.now())};
+const $ = s => document.querySelector(s);
+const view = $('#view');
+
+/* ---------- utils ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function pad(n){return String(n).padStart(2,'0')}
+function hm(ms){const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())}
+function dm(ms){const d=new Date(ms);return d.getDate()+'.'+(d.getMonth()+1)}
+function dayName(ms){return DAYS[new Date(ms).getDay()]}
+function sameDay(a,b){const x=new Date(a),y=new Date(b);return x.toDateString()===y.toDateString()}
+function fmtRange(s,e){
+  return sameDay(s,e)
+    ? `יום ${dayName(s)} ${dm(s)} · <bdi class="ltr">${hm(s)}–${hm(e)}</bdi>`
+    : `יום ${dayName(s)} ${dm(s)} <bdi class="ltr">${hm(s)}</bdi> עד יום ${dayName(e)} ${dm(e)} <bdi class="ltr">${hm(e)}</bdi>`;
+}
+function fmtDate(ms){if(!ms)return '';const d=new Date(ms);return d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear()}
+function dayStrToDate(s){if(!s)return null;const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function toLocalInput(ms){const d=new Date(ms);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+hm(ms)}
+function startOfWeek(ms){const d=new Date(ms);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d.getTime()}
+function addDays(ms,n){const d=new Date(ms);d.setDate(d.getDate()+n);return d.getTime()}
+function km(n){return n==null||n===''?'—':Number(n).toLocaleString('he-IL')}
+function fuel(n){return n?FUEL[n]:'—'}
+function overlaps(a,b){return a.start<b.end&&b.start<a.end}
+function validId(id){id=String(id||'').replace(/\D/g,'');if(id.length<5||id.length>9)return false;id=id.padStart(9,'0');let s=0;for(let i=0;i<9;i++){let n=+id[i]*((i%2)+1);s+=n>9?n-9:n}return s%10===0}
+function toast(msg,bad){const t=$('#toast');t.textContent=msg;t.className='toast'+(bad?' bad':'');t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,bad?6000:3200)}
+function store(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+
+/* ---------- auth ---------- */
+function decodeJwt(t){const b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(b))))}
+function tokenOk(){return S.token&&S.profile&&S.profile.exp*1000>Date.now()+60000}
+function waitGis(){return new Promise((res,rej)=>{let n=0;(function chk(){if(window.google&&google.accounts&&google.accounts.id)return res();if(++n>100)return rej();setTimeout(chk,100)})()})}
+let gisReady=false;
+async function initGis(){
+  await waitGis();
+  if(gisReady)return; gisReady=true;
+  google.accounts.id.initialize({client_id:CONFIG.CLIENT_ID,callback:onCredential,auto_select:true,cancel_on_tap_outside:false,use_fedcm_for_prompt:true});
+}
+function onCredential(r){
+  S.token=r.credential;S.profile=decodeJwt(r.credential);store('rk_token',S.token);start();
+}
+function signOut(msg){
+  S.token=null;S.profile=null;store('rk_token',null);
+  try{google.accounts.id.disableAutoSelect()}catch(e){}
+  showSignIn(msg);
+}
+async function showSignIn(msg){
+  $('#tabs').hidden=true;$('#who').hidden=true;
+  view.innerHTML=`<section class="hero">
+    <h2>כניסה למערכת הרכב</h2>
+    <p>הרכב השכור של הכפר רשום על רישיון הנהיגה של מנהלת הפנימייה. כדי להשתמש בו נרשמים פעם אחת, חותמים על תקנון האחריות, ומגישים בקשה לכל נסיעה.</p>
+    <ol class="steps"><li>מתחברים עם חשבון גוגל (גם ג'ימייל פרטי)</li><li>ממלאים פרטים וחותמים על התקנון</li><li>מבקשים את הרכב לתאריך ושעה ומחכים לאישור</li></ol>
+    ${msg?`<div class="flag">${esc(msg)}</div>`:''}
+    <div id="gbtn"></div>
+    <p class="hint">הכניסה משמשת רק לזיהוי לפי כתובת המייל. המערכת לא מקבלת גישה לחשבון שלך.</p>
+  </section>`;
+  try{
+    await initGis();
+    google.accounts.id.renderButton($('#gbtn'),{theme:'outline',size:'large',shape:'pill',text:'signin_with',locale:'he',width:280});
+    google.accounts.id.prompt();
+  }catch(e){$('#gbtn').innerHTML='<div class="err">לא הצלחנו לטעון את כפתור ההתחברות של גוגל. רעננו את הדף.</div>'}
+}
+
+/* ---------- api ---------- */
+async function api(action,payload){
+  if(!tokenOk()){signOut('החיבור פג. יש להתחבר שוב.');throw {silent:true}}
+  let res;
+  try{res=await fetch(CONFIG.API_URL,{method:'POST',body:JSON.stringify({token:S.token,action,payload:payload||{}})})}
+  catch(e){throw {message:'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.'}}
+  const j=await res.json().catch(()=>null);
+  if(!j)throw {message:'השרת החזיר תשובה לא תקינה. נסו שוב בעוד רגע.'};
+  if(!j.ok){if(j.error==='auth'){signOut(j.message);throw {silent:true}}throw {code:j.error,message:j.message}}
+  return j.data;
+}
+function errMsg(e){return e&&e.message?e.message:'משהו השתבש. נסו שוב.'}
+
+/* ---------- boot ---------- */
+window.addEventListener('DOMContentLoaded',()=>{
+  if(CONFIG.API_URL.startsWith('PASTE')||CONFIG.CLIENT_ID.startsWith('PASTE')){
+    view.innerHTML='<div class="empty">המערכת עוד לא הוגדרה: יש להדביק את API_URL ואת CLIENT_ID בראש הקובץ.</div>';return;
+  }
+  const t=load('rk_token');
+  if(t){try{S.token=t;S.profile=decodeJwt(t)}catch(e){S.token=null}}
+  if(location.hash==='#pending')S.wantTab='pending';
+  if(tokenOk())start();else showSignIn();
+});
+
+async function start(){
+  view.innerHTML='<div class="spin" aria-label="טוען"></div>';
+  try{S.me=await api('me')}catch(e){if(!e.silent)view.innerHTML=`<div class="empty">${esc(errMsg(e))}<br><br><button class="btn" onclick="start()">נסו שוב</button></div>`;return}
+  renderHeader();
+  if(S.me.isAdmin){S.tab=S.wantTab||'pending';await refreshData();return}
+  if(S.me.needsSigning){renderRegister();return}
+  if(S.me.blocked){$('#tabs').hidden=true;view.innerHTML='<div class="empty">ההרשאה שלך להשתמש ברכב הושהתה. לפרטים פנה/י למנהלת הפנימייה.</div>';return}
+  S.tab='mine';await refreshData();
+}
+
+function renderHeader(){
+  const st=S.me.settings;
+  $('#car-name').textContent=st.carName||'רכב הכפר';
+  const parts=[];
+  if(st.rentalFrom||st.rentalTo)parts.push('בכפר '+[st.rentalFrom&&fmtDate(dayStrToDate(st.rentalFrom)),st.rentalTo&&fmtDate(dayStrToDate(st.rentalTo))].filter(Boolean).join(' – '));
+  $('#car-meta').textContent=parts.join(' · ');
+  if(st.plate){$('#plate-num').textContent=st.plate;$('#plate').hidden=false}else $('#plate').hidden=true;
+  const w=$('#who');w.hidden=false;
+  w.innerHTML=`${S.me.picture?`<img src="${esc(S.me.picture)}" alt="" referrerpolicy="no-referrer">`:''}<span>${esc(S.me.name||S.me.email)}${S.me.isAdmin?' · מנהלת':''}</span><button class="linkbtn" id="out">יציאה</button>`;
+  $('#out').onclick=()=>signOut();
+}
+
+async function refreshData(){
+  try{
+    if(S.me.isAdmin){S.admin=await api('adminData');S.me.settings=S.admin.settings;renderHeader()}
+    else{
+      const [trips,busy]=await Promise.all([api('myTrips'),api('busy',{from:addDays(S.weekStart,-1),to:addDays(S.weekStart,15)})]);
+      S.trips=trips;S.busy=busy;
+    }
+  }catch(e){if(!e.silent)toast(errMsg(e),true);return}
+  renderTabs();renderTab();
+}
+
+/* ---------- tabs ---------- */
+function tabsDef(){
+  if(S.me.isAdmin){
+    const t=S.admin.trips;
+    const pend=t.filter(x=>x.status==='pending').length;
+    return [['pending','לטיפול',pend],['cal','יומן'],['log','תיעוד נסיעות'],['members','נהגים'],['mine','הנסיעות שלי'],['settings','הגדרות']];
+  }
+  return [['mine','הנסיעות שלי'],['cal','יומן הרכב']];
+}
+function renderTabs(){
+  const nav=$('#tabs');nav.hidden=false;
+  nav.innerHTML=tabsDef().map(([k,l,b])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('');
+}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;S.tab=b.dataset.tab;renderTabs();renderTab();window.scrollTo(0,0)});
+function renderTab(){
+  ({pending:renderPending,cal:renderCal,log:renderLog,members:renderMembers,mine:renderMine,settings:renderSettings}[S.tab]||renderMine)();
+}
+
+/* ---------- trips helpers ---------- */
+function myTripsList(){return S.me.isAdmin?S.admin.trips.filter(t=>t.email===S.me.email):S.trips}
+function isOverdue(t){return (t.status==='approved'||t.status==='active')&&t.end<Date.now()-30*60000}
+function chip(t){return `<span class="chip st-${t.status}">${STATUS[t.status]||t.status}</span>`}
+function odoBlock(t){
+  if(t.startKm==null)return '';
+  const dist=t.endKm!=null?t.endKm-t.startKm:null;
+  return `<div class="odo">
+    <div><small>ק"מ ביציאה</small><b>${km(t.startKm)}</b></div>
+    <div><small>ק"מ בחזרה</small><b>${km(t.endKm)}</b></div>
+    <div><small>מרחק</small><b>${dist==null?'—':km(dist)}</b></div>
+    <div><small>דלק ביציאה</small><b>${fuel(t.startFuel)}</b></div>
+    <div><small>דלק בחזרה</small><b>${fuel(t.endFuel)}</b></div>
+    <div><small>חזרה בפועל</small><b>${t.endAt?hm(t.endAt):'—'}</b></div>
+  </div>`;
+}
+
+/* ---------- my trips ---------- */
+function renderMine(){
+  const list=myTripsList();
+  const now=Date.now();
+  const open=list.filter(t=>['pending','approved','active'].includes(t.status));
+  const past=list.filter(t=>!['pending','approved','active'].includes(t.status));
+  const card=t=>{
+    const acts=[];
+    if(t.status==='approved')acts.push(`<button class="btn good" data-act="start" data-id="${t.id}">יוצא/ת לדרך: דיווח ק"מ ודלק</button>`);
+    if(t.status==='active')acts.push(`<button class="btn good" data-act="end" data-id="${t.id}">חזרתי: דיווח ק"מ ודלק</button>`);
+    if(t.status==='pending'||t.status==='approved')acts.push(`<button class="btn danger" data-act="cancel" data-id="${t.id}">ביטול</button>`);
+    return `<article class="trip${isOverdue(t)?' attn':''}">
+      <div class="trip-h"><span class="when">${fmtRange(t.start,t.end)}</span>${chip(t)}</div>
+      <div class="dest">${esc(t.destination)}</div>
+      <div class="sub">${esc(t.purpose)}${t.passengers?` · ${t.passengers} נוסעים`:''}</div>
+      ${t.notes?`<div class="note">${esc(t.notes)}</div>`:''}
+      ${t.decisionNote?`<div class="note">הערת המנהלת: ${esc(t.decisionNote)}</div>`:''}
+      ${isOverdue(t)?`<div class="flag">הזמן שאושר הסתיים. נא לדווח חזרה עם קילומטראז' ודלק.</div>`:''}
+      ${odoBlock(t)}
+      ${t.endNotes?`<div class="note">הערות בחזרה: ${esc(t.endNotes)}</div>`:''}
+      ${acts.length?`<div class="row">${acts.join('')}</div>`:''}
+    </article>`;
+  };
+  view.innerHTML=`
+    <button class="btn primary big" data-act="new">בקשה חדשה לרכב</button>
+    <section class="sec"><div class="sec-h"><h2>פתוחות</h2><span class="hint">${open.length?open.length+' נסיעות':''}</span></div>
+      ${open.length?open.sort((a,b)=>a.start-b.start).map(card).join(''):'<div class="empty">אין נסיעות פתוחות. בקשה חדשה תופיע כאן עם הסטטוס שלה.</div>'}
+    </section>
+    <section class="sec"><div class="sec-h"><h2>היסטוריה</h2></div>
+      ${past.length?past.map(card).join(''):'<div class="empty">עוד לא נסעת ברכב.</div>'}
+    </section>`;
+}
+
+/* ---------- calendar ---------- */
+function calItems(){
+  if(S.me.isAdmin){
+    return S.admin.trips.filter(t=>['pending','approved','active','done'].includes(t.status)).map(t=>({
+      start:t.start,end:t.end,kind:t.status==='pending'?'p':(t.email===S.me.email?'m':'a'),
+      label:`${esc(t.driverName)} · ${esc(t.destination)}${t.status==='pending'?' (ממתינה)':''}`}));
+  }
+  const items=S.busy.map(b=>({start:b.start,end:b.end,kind:b.mine?'m':'a',label:b.mine?'את/ה':esc(b.name)}));
+  S.trips.filter(t=>t.status==='pending').forEach(t=>items.push({start:t.start,end:t.end,kind:'p',label:'הבקשה שלך (ממתינה)'}));
+  return items;
+}
+function renderCal(){
+  const ws=S.weekStart, items=calItems();
+  let days='';
+  for(let i=0;i<7;i++){
+    const d0=addDays(ws,i), d1=addDays(ws,i+1);
+    const its=items.filter(x=>x.start<d1&&x.end>d0).sort((a,b)=>a.start-b.start);
+    const segs=its.map(x=>{const s=Math.max(x.start,d0),e=Math.min(x.end,d1);
+      return `<span class="${x.kind==='p'?'p':x.kind==='m'?'m':''}" style="left:${((s-d0)/(d1-d0)*100).toFixed(2)}%;width:${Math.max(.8,(e-s)/(d1-d0)*100).toFixed(2)}%"></span>`}).join('');
+    days+=`<div class="day${sameDay(d0,Date.now())?' today':''}">
+      <div class="day-h"><span>${DAYS[i]}</span><span class="d">${dm(d0)}</span></div>
+      <div class="bar"><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i>${segs}</div>
+      <div class="ticks"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+      <ul class="bk">${its.length?its.map(x=>`<li><bdi class="ltr num">${x.start<d0?'←':hm(x.start)}–${x.end>d1?'→':hm(x.end)}</bdi> ${x.label}</li>`).join(''):'<li class="hint">פנוי</li>'}</ul>
+    </div>`;
+  }
+  view.innerHTML=`<section class="sec">
+    <div class="cal-nav"><button class="btn" data-act="wk" data-d="-7">השבוע הקודם</button>
+      <strong>${dm(ws)} – ${dm(addDays(ws,6))}</strong>
+      <button class="btn" data-act="wk" data-d="7">השבוע הבא</button></div>
+    <div class="legend"><span>תפוס</span><span class="lm">${S.me.isAdmin?'הנסיעות שלך':'שלך'}</span><span class="lp">ממתינה לאישור</span></div>
+    ${days}
+    ${S.me.isAdmin?'':'<p class="hint">ביומן מוצגים רק זמנים תפוסים ושם פרטי. היעד והמטרה של אחרים לא מוצגים.</p>'}
+  </section>`;
+}
+
+/* ---------- admin: pending ---------- */
+function renderPending(){
+  const t=S.admin.trips, now=Date.now();
+  const members=Object.fromEntries(S.admin.members.map(m=>[m.email,m]));
+  const pending=t.filter(x=>x.status==='pending').sort((a,b)=>a.start-b.start);
+  const active=t.filter(x=>x.status==='active');
+  const overdue=t.filter(isOverdue);
+  const upcoming=t.filter(x=>x.status==='approved'&&x.end>=now-30*60000&&x.start<now+14*DAY).sort((a,b)=>a.start-b.start);
+  const approved=t.filter(x=>x.status==='approved'||x.status==='active');
+  const card=(x,kind)=>{
+    const m=members[x.email];
+    const clash=approved.filter(y=>y.id!==x.id&&overlaps(x,y));
+    const pclash=kind==='pending'?pending.filter(y=>y.id!==x.id&&overlaps(x,y)):[];
+    const flags=[];
+    if(kind==='pending'&&clash.length)flags.push(`<div class="flag bad">חופף לנסיעה מאושרת של ${clash.map(c=>esc(c.driverName)).join(', ')}</div>`);
+    if(pclash.length)flags.push(`<div class="flag">חופף לבקשה ממתינה של ${pclash.map(c=>esc(c.driverName)).join(', ')}</div>`);
+    if(m&&m.blocked)flags.push('<div class="flag bad">הנהג/ת חסום/ה</div>');
+    if(m&&m.licenseExpiry&&dayStrToDate(m.licenseExpiry).getTime()<x.end)flags.push('<div class="flag bad">תוקף הרישיון יפוג לפני הנסיעה</div>');
+    if(isOverdue(x))flags.push(`<div class="flag">${x.status==='active'?'לא דווחה חזרה':'לא דווחה יציאה'} · הזמן הסתיים ב-${hm(x.end)}</div>`);
+    let acts='';
+    if(kind==='pending')acts=`<button class="btn good" data-act="approve" data-id="${x.id}">אישור</button><button class="btn danger" data-act="reject" data-id="${x.id}">דחייה</button>`;
+    else if(x.status==='approved')acts=`<button class="btn danger" data-act="revoke" data-id="${x.id}">ביטול האישור</button>`;
+    return `<article class="trip${flags.length?' attn':''}">
+      <div class="trip-h"><span class="when">${fmtRange(x.start,x.end)}</span>${chip(x)}</div>
+      <div class="dest">${esc(x.destination)}</div>
+      <div class="sub"><b>${esc(x.driverName)}</b>${x.phone?` · <span class="num" style="user-select:all">${esc(x.phone)}</span>`:''}</div>
+      <div class="sub">${esc(x.purpose)}${x.passengers?` · ${x.passengers} נוסעים`:''}</div>
+      ${x.notes?`<div class="note">${esc(x.notes)}</div>`:''}
+      ${flags.join('')}
+      ${odoBlock(x)}
+      ${acts?`<div class="row">${acts}</div>`:''}
+    </article>`;
+  };
+  const sec=(title,list,kind,emptyText)=>`<section class="sec"><div class="sec-h"><h2>${title}</h2><span class="hint">${list.length||''}</span></div>
+    ${list.length?list.map(x=>card(x,kind)).join(''):`<div class="empty">${emptyText}</div>`}</section>`;
+  view.innerHTML=
+    sec('ממתינות לאישור',pending,'pending','אין בקשות שממתינות לך.')+
+    (active.length?sec('ברכב עכשיו',active,'active',''):'')+
+    (overdue.length?sec('לא דווחו בזמן',overdue,'overdue',''):'')+
+    sec('מאושרות לשבועיים הקרובים',upcoming,'upcoming','אין נסיעות מאושרות בשבועיים הקרובים.');
+}
+
+/* ---------- admin: log ---------- */
+function logRows(){
+  const trips=S.admin.trips.filter(t=>t.startKm!=null).sort((a,b)=>(a.startAt||a.start)-(b.startAt||b.start));
+  let prevEnd=null;
+  return trips.map(t=>{
+    const gap=prevEnd!=null&&t.startKm!=null?t.startKm-prevEnd:null;
+    if(t.endKm!=null)prevEnd=t.endKm;
+    return Object.assign({},t,{gap,dist:t.endKm!=null?t.endKm-t.startKm:null});
+  });
+}
+function renderLog(){
+  const rows=logRows();
+  const done=rows.filter(r=>r.status==='done');
+  const totalKm=done.reduce((s,r)=>s+(r.dist||0),0);
+  const drivers=new Set(done.map(r=>r.email)).size;
+  const gaps=rows.filter(r=>r.gap&&r.gap!==0);
+  view.innerHTML=`
+    <div class="tiles">
+      <div class="tile"><b>${done.length}</b><small>נסיעות שהושלמו</small></div>
+      <div class="tile"><b>${km(totalKm)}</b><small>ק"מ מתועדים</small></div>
+      <div class="tile"><b>${drivers}</b><small>נהגים שנסעו</small></div>
+      <div class="tile"><b>${gaps.length}</b><small>פערי קילומטראז'</small></div>
+    </div>
+    ${gaps.length?`<div class="flag bad">יש ${gaps.length} נסיעות שבהן הקילומטראז' ביציאה לא תואם לחזרה של הנסיעה הקודמת. ייתכן שהרכב נסע בלי תיעוד, או שהוקלד מספר שגוי. השורות מסומנות בטבלה.</div>`:''}
+    <div class="sec-h"><h2>יומן נסיעות</h2><button class="btn" data-act="csv">הורדה כקובץ CSV</button></div>
+    ${rows.length?`<div class="scroll"><table>
+      <thead><tr><th>תאריך</th><th>שעות</th><th>נהג/ת</th><th>יעד</th><th>מטרה</th><th>ק"מ יציאה</th><th>ק"מ חזרה</th><th>מרחק</th><th>דלק</th><th>הערות</th></tr></thead>
+      <tbody>${rows.slice().reverse().map(r=>`<tr>
+        <td>${fmtDate(r.start)}</td><td><bdi class="ltr num">${hm(r.startAt||r.start)}–${r.endAt?hm(r.endAt):'…'}</bdi></td>
+        <td>${esc(r.driverName)}</td><td class="wrap-cell">${esc(r.destination)}</td><td class="wrap-cell">${esc(r.purpose)}</td>
+        <td class="num">${km(r.startKm)}${r.gap?`<div class="chip st-rejected">פער ${km(r.gap)}</div>`:''}</td>
+        <td class="num">${km(r.endKm)}</td><td class="num">${r.dist==null?'—':km(r.dist)}</td>
+        <td><bdi class="ltr">${fuel(r.startFuel)} → ${fuel(r.endFuel)}</bdi>${r.endFuel&&r.endFuel<r.startFuel?'<div class="chip st-pending">פחות דלק</div>':''}</td>
+        <td class="wrap-cell">${esc(r.endNotes)}</td></tr>`).join('')}</tbody></table></div>`
+      :'<div class="empty">עוד אין נסיעות מתועדות. נסיעה נכנסת לכאן כשהנהג/ת מדווח/ת יציאה.</div>'}
+    <p class="hint">כל הנתונים נשמרים גם בגיליון "נסיעות" ב-Google Sheets.</p>`;
+}
+function downloadCsv(){
+  const rows=logRows();
+  const head=['תאריך','יציאה','חזרה','נהג/ת','מייל','יעד','מטרה','נוסעים','ק"מ יציאה','ק"מ חזרה','מרחק','פער מהנסיעה הקודמת','דלק יציאה','דלק חזרה','הערות'];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const lines=[head.map(q).join(',')].concat(rows.map(r=>[fmtDate(r.start),hm(r.startAt||r.start),r.endAt?hm(r.endAt):'',r.driverName,r.email,r.destination,r.purpose,r.passengers,r.startKm,r.endKm??'',r.dist??'',r.gap||'',fuel(r.startFuel),r.endFuel?fuel(r.endFuel):'',r.endNotes].map(q).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='יומן-נסיעות-רכב-הכפר.csv';document.body.appendChild(a);a.click();a.remove();
+}
+
+/* ---------- admin: members ---------- */
+function renderMembers(){
+  const v=S.admin.settings.termsVersion;
+  const ms=S.admin.members.slice().sort((a,b)=>String(a.fullName).localeCompare(String(b.fullName),'he'));
+  view.innerHTML=`<section class="sec"><div class="sec-h"><h2>נהגים רשומים</h2><span class="hint">${ms.length}</span></div>
+    ${ms.length?ms.map(m=>{
+      const exp=m.licenseExpiry&&dayStrToDate(m.licenseExpiry).getTime()<Date.now();
+      return `<article class="member">
+        <div class="trip-h"><span class="dest">${esc(m.fullName)}</span>
+          ${m.blocked?'<span class="chip st-rejected">חסום/ה</span>':m.termsVersion!==v?'<span class="chip st-pending">צריך/ה לחתום מחדש</span>':'<span class="chip st-done">פעיל/ה</span>'}</div>
+        <dl class="kv">
+          <dt>מייל</dt><dd>${esc(m.email)}</dd>
+          <dt>טלפון</dt><dd class="num">${esc(m.phone)}</dd>
+          <dt>ת.ז.</dt><dd class="num">${esc(m.idNumber)}</dd>
+          <dt>כתובת</dt><dd>${esc(m.address)}</dd>
+          <dt>רישיון</dt><dd><span class="num">${esc(m.licenseNumber)}</span> · בתוקף עד ${fmtDate(dayStrToDate(m.licenseExpiry))}${exp?' <span class="chip st-rejected">פג תוקף</span>':''}</dd>
+          <dt>חתם/ה</dt><dd>${fmtDate(m.signedAt)}${m.pdfUrl?` · <a href="${esc(m.pdfUrl)}" target="_blank" rel="noopener">התקנון החתום</a>`:''}</dd>
+          <dt>נסיעות</dt><dd>${m.trips}</dd>
+        </dl>
+        <div class="row">${m.blocked
+          ?`<button class="btn" data-act="block" data-email="${esc(m.email)}" data-b="0">החזרת ההרשאה</button>`
+          :`<button class="btn danger" data-act="block" data-email="${esc(m.email)}" data-b="1">השהיית ההרשאה</button>`}</div>
+      </article>`}).join(''):'<div class="empty">עוד אף אחד לא נרשם. שלחי לצוות את הקישור לאתר, והנרשמים יופיעו כאן עם התקנון החתום.</div>'}
+  </section>`;
+}
+
+/* ---------- admin: settings ---------- */
+function renderSettings(){
+  const s=S.admin.settings;
+  view.innerHTML=`<form id="set-form" class="sec">
+    <div class="sec-h"><h2>פרטי הרכב</h2></div>
+    <div class="panel sec">
+      <div class="grid2">
+        <div class="field"><label for="s-car">שם הרכב</label><input id="s-car" type="text" value="${esc(s.carName)}" placeholder="לדוגמה: סקודה אוקטביה לבנה"></div>
+        <div class="field"><label for="s-plate">מספר רישוי</label><input id="s-plate" type="text" value="${esc(s.plate)}" placeholder="12-345-67" dir="ltr"></div>
+        <div class="field"><label for="s-from">הרכב בכפר מתאריך</label><input id="s-from" type="date" value="${esc(s.rentalFrom)}"></div>
+        <div class="field"><label for="s-to">עד תאריך (החזרה להשכרה)</label><input id="s-to" type="date" value="${esc(s.rentalTo)}"></div>
+      </div>
+    </div>
+    <div class="sec-h"><h2>תקנון</h2><span class="hint">גרסה ${s.termsVersion}</span></div>
+    <div class="panel sec">
+      <div class="field"><label for="s-terms">נוסח התקנון</label><textarea id="s-terms" style="min-height:320px">${esc(s.termsText)}</textarea>
+      <small>שינוי בנוסח יוצר גרסה חדשה. כל הנהגים יתבקשו לחתום מחדש לפני הבקשה הבאה.</small></div>
+    </div>
+    <div class="err" id="set-err"></div>
+    <button class="btn primary big" type="submit">שמירה</button>
+  </form>`;
+  $('#set-form').onsubmit=async e=>{
+    e.preventDefault();const b=e.submitter||e.target.querySelector('[type=submit]');b.disabled=true;$('#set-err').textContent='';
+    try{
+      S.admin.settings=await api('saveSettings',{carName:$('#s-car').value,plate:$('#s-plate').value,rentalFrom:$('#s-from').value,rentalTo:$('#s-to').value,termsText:$('#s-terms').value});
+      S.me.settings=S.admin.settings;renderHeader();toast('נשמר');renderSettings();
+    }catch(err){if(!err.silent)$('#set-err').textContent=errMsg(err)}finally{b.disabled=false}
+  };
+}
+
+/* ---------- registration ---------- */
+function renderRegister(){
+  $('#tabs').hidden=true;
+  const m=S.me.member||{}, again=!!S.me.member;
+  const st=S.me.settings;
+  view.innerHTML=`<form id="reg" class="sec" novalidate>
+    <div class="sec">
+      <h2 style="font-size:26px">${again?'התקנון עודכן':'הרשמה לשימוש ברכב'}</h2>
+      <p>${again?'נוסח התקנון השתנה מאז שחתמת. יש לקרוא את הגרסה החדשה ולחתום שוב.':'הרכב שכור על רישיון הנהיגה של מנהלת הפנימייה, ולכן כל קנס או דוח נרשם על שמה. כדי לנהוג ברכב צריך לקחת על עצמך אחריות אישית: למלא את הפרטים שנדרשים להסבת דוח, לקרוא את התקנון ולחתום עליו.'}</p>
+    </div>
+    <section class="panel sec">
+      <h3 style="font-size:18px">פרטים אישיים</h3>
+      <div class="grid2">
+        <div class="field"><label for="r-name">שם מלא</label><input id="r-name" type="text" autocomplete="name" value="${esc(m.fullName||S.me.name||'')}"></div>
+        <div class="field"><label for="r-id">תעודת זהות</label><input id="r-id" type="text" inputmode="numeric" dir="ltr" maxlength="9"><small>נדרשת להסבת דוחות</small></div>
+        <div class="field"><label for="r-phone">טלפון נייד</label><input id="r-phone" type="tel" inputmode="tel" dir="ltr" value="${esc(m.phone||'')}"></div>
+        <div class="field"><label for="r-addr">כתובת מגורים</label><input id="r-addr" type="text" autocomplete="street-address"></div>
+        <div class="field"><label for="r-lic">מספר רישיון נהיגה</label><input id="r-lic" type="text" inputmode="numeric" dir="ltr"></div>
+        <div class="field"><label for="r-exp">תוקף הרישיון</label><input id="r-exp" type="date" value="${esc(m.licenseExpiry||'')}"></div>
+      </div>
+    </section>
+    <section class="panel sec">
+      <h3 style="font-size:18px">תקנון שימוש ברכב <span class="hint">(גרסה ${st.termsVersion})</span></h3>
+      <div class="terms" tabindex="0">${esc(st.termsText)}</div>
+      <label class="check"><input type="checkbox" id="r-agree"> קראתי את התקנון, הפרטים שמסרתי נכונים, ואני מתחייב/ת לפעול לפיו ולשאת באחריות לכל דוח או קנס מהזמן שבו הרכב ברשותי.</label>
+      <div class="field"><span class="lbl">חתימה</span>
+        <div class="sig-wrap"><canvas id="sig"></canvas><div class="ph" id="sig-ph">חתמו כאן באצבע או בעכבר</div></div>
+        <div><button type="button" class="linkbtn" id="sig-clear">ניקוי החתימה</button></div>
+      </div>
+    </section>
+    <div class="err" id="reg-err" role="alert"></div>
+    <button class="btn primary big" type="submit">חתימה ושליחה</button>
+    <p class="hint">עותק PDF של התקנון החתום יישלח למייל שלך ולמנהלת.</p>
+  </form>`;
+  const sig=sigPad($('#sig'),()=>$('#sig-ph').hidden=true);
+  $('#sig-clear').onclick=()=>{sig.clear();$('#sig-ph').hidden=false};
+  $('#reg').onsubmit=async e=>{
+    e.preventDefault();
+    const err=$('#reg-err');err.textContent='';
+    const v={fullName:$('#r-name').value.trim(),idNumber:$('#r-id').value.replace(/\D/g,''),phone:$('#r-phone').value.replace(/\D/g,''),
+      address:$('#r-addr').value.trim(),licenseNumber:$('#r-lic').value.replace(/\D/g,''),licenseExpiry:$('#r-exp').value,agree:$('#r-agree').checked,termsVersion:st.termsVersion};
+    const bad=[];
+    if(v.fullName.split(/\s+/).length<2)bad.push('שם פרטי ומשפחה');
+    if(!validId(v.idNumber))bad.push('תעודת זהות תקינה');
+    if(!/^0\d{8,9}$/.test(v.phone))bad.push('מספר טלפון');
+    if(v.address.length<4)bad.push('כתובת');
+    if(!/^\d{5,10}$/.test(v.licenseNumber))bad.push('מספר רישיון');
+    if(!v.licenseExpiry||dayStrToDate(v.licenseExpiry)<new Date(new Date().toDateString()))bad.push('תוקף רישיון בתוקף');
+    if(!v.agree)bad.push('אישור התקנון');
+    if(!sig.has())bad.push('חתימה');
+    if(bad.length){err.textContent='חסר או לא תקין: '+bad.join(', ')+'.';return}
+    v.signature=sig.png();
+    const b=e.submitter||e.target.querySelector('[type=submit]');b.disabled=true;b.textContent='שולח…';
+    try{S.me=await api('register',v);toast('ההרשמה הושלמה. עותק נשלח למייל שלך');S.tab='mine';await refreshData()}
+    catch(x){if(!x.silent){err.textContent=errMsg(x);b.disabled=false;b.textContent='חתימה ושליחה'}}
+  };
+}
+function sigPad(c,onDraw){
+  const strokes=[];let cur=null;
+  const ctx=c.getContext('2d');
+  function size(){const r=c.getBoundingClientRect();c.width=Math.round(r.width*2);c.height=Math.round(r.height*2);draw()}
+  function draw(){ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,c.width,c.height);ctx.strokeStyle='#111';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round';
+    strokes.forEach(s=>{ctx.beginPath();s.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));if(s.length===1)ctx.lineTo(s[0][0]+.1,s[0][1]);ctx.stroke()})}
+  const pos=e=>{const r=c.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
+  c.addEventListener('pointerdown',e=>{e.preventDefault();c.setPointerCapture(e.pointerId);cur=[pos(e)];strokes.push(cur);onDraw();draw()});
+  c.addEventListener('pointermove',e=>{if(!cur)return;cur.push(pos(e));draw()});
+  ['pointerup','pointercancel'].forEach(t=>c.addEventListener(t,()=>cur=null));
+  window.addEventListener('resize',size);size();
+  return {
+    has:()=>strokes.some(s=>s.length>3),
+    clear(){strokes.length=0;draw()},
+    png(){const r=c.getBoundingClientRect(),W=500,H=Math.round(500*r.height/r.width),k=W/r.width;
+      const o=document.createElement('canvas');o.width=W;o.height=H;const x=o.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
+      x.strokeStyle='#111';x.lineWidth=2.4;x.lineCap='round';x.lineJoin='round';
+      strokes.forEach(s=>{x.beginPath();s.forEach((p,i)=>i?x.lineTo(p[0]*k,p[1]*k):x.moveTo(p[0]*k,p[1]*k));x.stroke()});
+      return o.toDataURL('image/png')}
+  };
+}
+
+/* ---------- modal ---------- */
+function openModal({title,body,submit,submitClass,onSubmit,onOpen}){
+  const m=$('#modal');
+  m.innerHTML=`<form class="sheet" id="mform" novalidate role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <header><h2 id="m-title">${title}</h2></header>
+    <div class="body">${body}<div class="err" id="m-err" role="alert"></div></div>
+    <footer><button type="button" class="btn" data-close>סגירה</button><button type="submit" class="btn ${submitClass||'primary'}">${submit}</button></footer>
+  </form>`;
+  m.hidden=false;document.body.style.overflow='hidden';
+  const f=$('#mform');
+  f.querySelector('[data-close]').onclick=closeModal;
+  f.onsubmit=async e=>{
+    e.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;$('#m-err').textContent='';
+    try{const r=await onSubmit(f);if(r===false){b.disabled=false;return}closeModal()}
+    catch(x){if(!x.silent)$('#m-err').textContent=errMsg(x);b.disabled=false}
+  };
+  if(onOpen)onOpen(f);
+  const first=f.querySelector('input,select,textarea');if(first&&matchMedia('(min-width:640px)').matches)first.focus();
+}
+function closeModal(){$('#modal').hidden=true;$('#modal').innerHTML='';document.body.style.overflow=''}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
+
+function gaugeHtml(id,val){
+  return `<div class="field"><span class="lbl">מצב הדלק</span>
+    <div class="gauge" id="${id}" role="radiogroup" aria-label="מצב הדלק">${[1,2,3,4,5,6,7,8].map(k=>`<button type="button" class="seg" data-k="${k}" role="radio" aria-label="${FUEL[k]}"></button>`).join('')}</div>
+    <div class="gauge-l"><span>E</span><span>¼</span><span>½</span><span>¾</span><span>F</span></div>
+    <div class="gauge-v" id="${id}-v">הקישו על המחוג לפי מה שמופיע ברכב</div></div>`;
+}
+function bindGauge(f,id){
+  const g=f.querySelector('#'+id);
+  const set=k=>{g.dataset.v=k;g.querySelectorAll('.seg').forEach(s=>{const n=+s.dataset.k;s.classList.toggle('on',n<=k);s.classList.toggle('low',k<=2);s.setAttribute('aria-checked',n===k)});
+    f.querySelector('#'+id+'-v').textContent='נבחר: '+(k===8?'מיכל מלא':FUEL[k]+' מיכל')+(k<=1?' (נורת רזרבה)':'')};
+  g.addEventListener('click',e=>{const s=e.target.closest('.seg');if(s)set(+s.dataset.k)});
+  return ()=>+g.dataset.v||0;
+}
+
+/* ---------- actions ---------- */
+view.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const a=el.dataset.act, id=el.dataset.id;
+  const all=S.me.isAdmin?S.admin.trips:S.trips;
+  const t=id?all.find(x=>x.id===id):null;
+  ({new:newRequest,start:()=>startTrip(t),end:()=>endTrip(t),cancel:()=>cancelTrip(t),approve:()=>approve(t),reject:()=>reject(t,false),revoke:()=>reject(t,true),
+    wk:()=>{S.weekStart=addDays(S.weekStart,+el.dataset.d);S.me.isAdmin?renderCal():refreshData()},csv:downloadCsv,
+    block:()=>blockMember(el.dataset.email,el.dataset.b==='1')}[a]||(()=>{}))();
+});
+
+function newRequest(){
+  const st=S.me.settings;
+  const d=new Date();d.setMinutes(0,0,0);d.setHours(d.getHours()+1);
+  const s0=d.getTime(), e0=s0+2*3600000;
+  openModal({title:'בקשה חדשה לרכב',submit:S.me.isAdmin?'שמירה ביומן':'שליחה לאישור',
+    body:`<div class="grid2">
+      <div class="field"><label for="n-s">יציאה</label><input id="n-s" type="datetime-local" step="900" value="${toLocalInput(s0)}"></div>
+      <div class="field"><label for="n-e">חזרה</label><input id="n-e" type="datetime-local" step="900" value="${toLocalInput(e0)}"></div>
+    </div>
+    <div id="n-busy"></div>
+    <div class="field"><label for="n-dest">לאן?</label><input id="n-dest" type="text" placeholder="לדוגמה: קופת חולים בחדרה"></div>
+    <div class="field"><label for="n-pur">מטרת הנסיעה</label><select id="n-pur"><option value="">בחירה…</option>${PURPOSES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+    <div class="field" id="n-other-w" hidden><label for="n-other">מה המטרה?</label><input id="n-other" type="text"></div>
+    <div class="field"><label for="n-pass">מספר נוסעים (בלי הנהג/ת)</label><input id="n-pass" type="number" min="0" max="8" value="0" inputmode="numeric"></div>
+    <div class="field"><label for="n-notes">הערות למנהלת <span class="hint">(לא חובה)</span></label><textarea id="n-notes" style="min-height:70px"></textarea></div>
+    ${st.rentalTo?`<p class="hint">הרכב בכפר עד ${fmtDate(dayStrToDate(st.rentalTo))}.</p>`:''}`,
+    onOpen(f){
+      const busy=S.me.isAdmin?S.admin.trips.filter(t=>t.status==='approved'||t.status==='active'):S.busy;
+      const chk=()=>{const s=new Date(f.querySelector('#n-s').value).getTime(),e=new Date(f.querySelector('#n-e').value).getTime();
+        const c=busy.filter(b=>s<b.end&&e>b.start);
+        f.querySelector('#n-busy').innerHTML=c.length?`<div class="flag bad">הרכב תפוס בחלק מהזמן הזה: ${c.map(b=>fmtRange(b.start,b.end)).join(', ')}</div>`:''};
+      f.querySelector('#n-s').addEventListener('change',()=>{const s=new Date(f.querySelector('#n-s').value).getTime(),e=new Date(f.querySelector('#n-e').value).getTime();if(!(e>s))f.querySelector('#n-e').value=toLocalInput(s+2*3600000);chk()});
+      f.querySelector('#n-e').addEventListener('change',chk);
+      f.querySelector('#n-pur').addEventListener('change',e=>f.querySelector('#n-other-w').hidden=e.target.value!=='אחר');
+      chk();
+    },
+    async onSubmit(f){
+      const start=new Date(f.querySelector('#n-s').value).getTime(),end=new Date(f.querySelector('#n-e').value).getTime();
+      let purpose=f.querySelector('#n-pur').value;if(purpose==='אחר')purpose=f.querySelector('#n-other').value.trim();
+      const p={start,end,destination:f.querySelector('#n-dest').value.trim(),purpose,passengers:+f.querySelector('#n-pass').value||0,notes:f.querySelector('#n-notes').value.trim()};
+      if(!(start&&end)||end<=start)throw {message:'שעת החזרה חייבת להיות אחרי שעת היציאה.'};
+      if(p.destination.length<2)throw {message:'יש למלא יעד.'};
+      if(p.purpose.length<2)throw {message:'יש לבחור או לכתוב מטרה.'};
+      await api('createRequest',p);
+      toast(S.me.isAdmin?'הנסיעה נשמרה ביומן':'הבקשה נשלחה. תקבל/י מייל כשתאושר');
+      S.tab='mine';await refreshData();
+    }});
+}
+
+function startTrip(t){
+  let getFuel;
+  openModal({title:'יציאה לדרך',submit:'דיווח יציאה',submitClass:'good',
+    body:`<p class="sub">${fmtRange(t.start,t.end)} · ${esc(t.destination)}</p>
+      <div class="field"><label for="k">קילומטראז' בלוח המחוונים</label><input id="k" class="odo-in" type="text" inputmode="numeric" autocomplete="off" placeholder="000000"></div>
+      ${gaugeHtml('g1')}
+      <label class="check" id="low-w" hidden><input type="checkbox" id="low"> בדקתי, המספר נכון</label>`,
+    onOpen(f){getFuel=bindGauge(f,'g1')},
+    async onSubmit(f){
+      const k=parseInt(f.querySelector('#k').value.replace(/\D/g,''),10),fu=getFuel();
+      if(!(k>0))throw {message:"יש להקליד את הקילומטראז'."};
+      if(!fu)throw {message:'יש לבחור את מצב הדלק.'};
+      try{await api('startTrip',{id:t.id,km:k,fuel:fu,confirmLow:f.querySelector('#low').checked})}
+      catch(x){if(x.code==='km_low')f.querySelector('#low-w').hidden=false;throw x}
+      toast('נסיעה טובה ובטוחה');await refreshData();
+    }});
+}
+function endTrip(t){
+  let getFuel;
+  openModal({title:'חזרתי עם הרכב',submit:'דיווח חזרה',submitClass:'good',
+    body:`<p class="sub">ביציאה: <span class="num">${km(t.startKm)}</span> ק"מ · דלק ${fuel(t.startFuel)}</p>
+      <div class="field"><label for="k">קילומטראז' בלוח המחוונים</label><input id="k" class="odo-in" type="text" inputmode="numeric" autocomplete="off" placeholder="000000"><small id="dist"></small></div>
+      ${gaugeHtml('g2')}
+      <div class="field"><label for="nt">תקלות, נזק או הערות <span class="hint">(לא חובה)</span></label><textarea id="nt" style="min-height:70px" placeholder="לדוגמה: נדלקה נורת לחץ אוויר"></textarea></div>
+      <label class="check"><input type="checkbox" id="ok"> הרכב חזר למקומו, נקי ונעול, והמפתח הוחזר</label>`,
+    onOpen(f){getFuel=bindGauge(f,'g2');
+      f.querySelector('#k').addEventListener('input',e=>{const k=parseInt(e.target.value.replace(/\D/g,''),10);f.querySelector('#dist').textContent=k>=t.startKm?'מרחק הנסיעה: '+km(k-t.startKm)+' ק"מ':''})},
+    async onSubmit(f){
+      const k=parseInt(f.querySelector('#k').value.replace(/\D/g,''),10),fu=getFuel();
+      if(!(k>=t.startKm))throw {message:"הקילומטראז' בחזרה צריך להיות לפחות "+km(t.startKm)+'.'};
+      if(!fu)throw {message:'יש לבחור את מצב הדלק.'};
+      if(!f.querySelector('#ok').checked)throw {message:'יש לאשר שהרכב הוחזר נקי ונעול.'};
+      await api('endTrip',{id:t.id,km:k,fuel:fu,notes:f.querySelector('#nt').value.trim(),returnedOk:true});
+      toast('תודה, הנסיעה תועדה');await refreshData();
+    }});
+}
+function cancelTrip(t){
+  openModal({title:'ביטול הנסיעה',submit:'כן, לבטל',submitClass:'danger',
+    body:`<p>${fmtRange(t.start,t.end)} · ${esc(t.destination)}</p><p>הזמן יתפנה ביומן${t.status==='approved'?' והמנהלת תקבל הודעה':''}.</p>`,
+    async onSubmit(){await api('cancel',{id:t.id});toast('הנסיעה בוטלה');await refreshData()}});
+}
+async function approve(t,force){
+  const clash=S.admin.trips.filter(y=>y.id!==t.id&&(y.status==='approved'||y.status==='active')&&overlaps(t,y));
+  if(clash.length&&!force){
+    openModal({title:'הזמן חופף לנסיעה מאושרת',submit:'לאשר בכל זאת',submitClass:'danger',
+      body:`<p>${esc(t.driverName)} מבקש/ת ${fmtRange(t.start,t.end)}.</p><div class="flag bad">חופף ל: ${clash.map(c=>esc(c.driverName)+' · '+fmtRange(c.start,c.end)).join('<br>')}</div>`,
+      async onSubmit(){await api('decide',{id:t.id,approve:true,force:true});toast('אושר. נשלח מייל לנהג/ת');await refreshData()}});
+    return;
+  }
+  openModal({title:'אישור הנסיעה',submit:'אישור',submitClass:'good',
+    body:`<p><b>${esc(t.driverName)}</b> · ${fmtRange(t.start,t.end)}<br>${esc(t.destination)} · ${esc(t.purpose)}</p>
+      <div class="field"><label for="dn">הערה לנהג/ת <span class="hint">(לא חובה)</span></label><input id="dn" type="text" placeholder="לדוגמה: המפתח אצל עלי"></div>`,
+    async onSubmit(f){await api('decide',{id:t.id,approve:true,note:f.querySelector('#dn').value});toast('אושר. נשלח מייל לנהג/ת');await refreshData()}});
+}
+function reject(t,revoke){
+  openModal({title:revoke?'ביטול האישור':'דחיית הבקשה',submit:revoke?'ביטול האישור':'דחייה',submitClass:'danger',
+    body:`<p><b>${esc(t.driverName)}</b> · ${fmtRange(t.start,t.end)}<br>${esc(t.destination)}</p>
+      <div class="field"><label for="dn">הסבר שיישלח לנהג/ת</label><input id="dn" type="text"></div>`,
+    async onSubmit(f){await api('decide',{id:t.id,approve:false,note:f.querySelector('#dn').value});toast(revoke?'האישור בוטל':'הבקשה נדחתה');await refreshData()}});
+}
+function blockMember(email,block){
+  const m=S.admin.members.find(x=>x.email===email);
+  openModal({title:block?'השהיית ההרשאה':'החזרת ההרשאה',submit:block?'השהיה':'החזרה',submitClass:block?'danger':'primary',
+    body:`<p>${esc(m?m.fullName:email)} ${block?'לא יוכל/תוכל להגיש בקשות חדשות עד שתחזירי את ההרשאה. נסיעות שכבר אושרו לא מתבטלות אוטומטית.':'יוכל/תוכל שוב להגיש בקשות.'}</p>`,
+    async onSubmit(){await api('setBlocked',{email,blocked:block});toast('עודכן');await refreshData()}});
+}
+</script>
+</body>
+</html>
